@@ -10,31 +10,45 @@ from . import env
 
 def convert_rest_env_obj(env_obj) -> env.Env:
     e = env_obj.attributes
-    return env.Env(e["value"], env.EnvType.FILE if e["variable_type"] == "file" else env.EnvType.VAR)
+    return env.Env(
+        e["value"],
+        env.EnvType.FILE if e["variable_type"] == "file" else env.EnvType.VAR,
+    )
 
 
 def write_env_file(path: Path, rest_env_list) -> None:
-    env_transformed = {str(e.attributes["key"]): convert_rest_env_obj(e) for e in rest_env_list}
+    env_transformed = {
+        str(e.attributes["key"]): convert_rest_env_obj(e) for e in rest_env_list
+    }
     env.dump(path, env_transformed)
 
 
-def get_env_variables(gitlab_inst: Gitlab, project_components: list[str], inst_base_path: Path) -> None:
+def get_env_variables(
+    gitlab_inst: Gitlab, project_components: list[str], inst_base_path: Path
+) -> None:
     if not os.path.exists(inst_base_path / "env.json"):
         write_env_file(inst_base_path / "env.json", gitlab_inst.variables.list())
 
     for i in range(len(project_components) - 1):
         group = "/".join(project_components[:i])
         group_path = inst_base_path.joinpath(*project_components[:i])
-        
+
         if not os.path.exists(group_path / "env.json"):
-            write_env_file(group_path / "env.json", gitlab_inst.groups.get(group).variables.list())
+            write_env_file(
+                group_path / "env.json", gitlab_inst.groups.get(group).variables.list()
+            )
 
     project_path = inst_base_path.joinpath(*project_components)
     if not os.path.exists(project_path / "env.json"):
-        write_env_file(project_path / "env.json", gitlab_inst.projects.get("/".join(project_components)).variables.list())
+        write_env_file(
+            project_path / "env.json",
+            gitlab_inst.projects.get("/".join(project_components)).variables.list(),
+        )
 
 
-def download_artifacts(project_inst: Project, pipeline_id: int, jobs: list[str], pipeline_base_path: Path) -> None:
+def download_artifacts(
+    project_inst: Project, pipeline_id: int, jobs: list[str], pipeline_base_path: Path
+) -> None:
     pipeline = project_inst.pipelines.get(pipeline_id)
 
     for j in pipeline.jobs.list():
@@ -49,11 +63,13 @@ def download_artifacts(project_inst: Project, pipeline_id: int, jobs: list[str],
         artifact_data = BytesIO(project_job.artifacts())
         with ZipFile(artifact_data) as z:
             z.extractall(extract_path)
-        
 
-def get_required_artifacts(project_inst: Project, pipeline_id: int, jobs: list[str], pipeline_base_path: Path) -> None:
+
+def get_required_artifacts(
+    project_inst: Project, pipeline_id: int, jobs: list[str], pipeline_base_path: Path
+) -> None:
     download_jobs = [j for j in jobs if not os.path.exists(pipeline_base_path / j)]
-    
+
     if not download_jobs:
         return
 

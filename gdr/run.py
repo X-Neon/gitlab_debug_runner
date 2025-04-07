@@ -27,20 +27,30 @@ def create_shell_invocation(shell: str, commands: list[str]) -> list[str]:
     return [shell, "-c", "\n".join(all_commands)]
 
 
-def execute_in_docker(client: docker.DockerClient, command: list[str], image: str, variables: dict[str, str], 
-                      entrypoint: str | None, file_env_path: Path) -> int:
+def execute_in_docker(
+    client: docker.DockerClient,
+    command: list[str],
+    image: str,
+    variables: dict[str, str],
+    entrypoint: str | None,
+    file_env_path: Path,
+) -> int:
     volumes = {
-        VOLUME_NAME: {
-            "bind": "/build",
-            "mode": "rw"
-        },
-        str(file_env_path): {
-            "bind": str(ENV_CONTAINER_PATH),
-            "mode": "ro"
-        },
+        VOLUME_NAME: {"bind": "/build", "mode": "rw"},
+        str(file_env_path): {"bind": str(ENV_CONTAINER_PATH), "mode": "ro"},
     }
-    container = cast(Container, client.containers.run(
-        image, command, environment=variables, entrypoint=entrypoint, volumes=volumes, name=CONTAINER_NAME, detach=True))
+    container = cast(
+        Container,
+        client.containers.run(
+            image,
+            command,
+            environment=variables,
+            entrypoint=entrypoint,
+            volumes=volumes,
+            name=CONTAINER_NAME,
+            detach=True,
+        ),
+    )
 
     for line in container.logs(stream=True):
         sys.stdout.buffer.write(line)
@@ -58,33 +68,64 @@ def run_job(client: docker.DockerClient, job: Job, base_path: Path):
     image = cast(Image, client.images.get(job.image))
     shell = cast(dict, image.attrs)["Config"]["Cmd"][0]
 
-    print("\x1b[34mExecuting \"step_script\" stage of the job script\x1b[0m", flush=True)
-    before_and_main_invocation = create_shell_invocation(shell, job.script.before + job.script.main)
-    before_and_main_code = execute_in_docker(client, before_and_main_invocation, job.image, job.variables, job.entrypoint, file_env_path)
+    print('\x1b[34mExecuting "step_script" stage of the job script\x1b[0m', flush=True)
+    before_and_main_invocation = create_shell_invocation(
+        shell, job.script.before + job.script.main
+    )
+    before_and_main_code = execute_in_docker(
+        client,
+        before_and_main_invocation,
+        job.image,
+        job.variables,
+        job.entrypoint,
+        file_env_path,
+    )
 
     if job.script.after:
         print("\x1b[34mRunning after_script\x1b[0m", flush=True)
         after_invocation = create_shell_invocation(shell, job.script.after)
-        after_code = execute_in_docker(client, after_invocation, job.image, job.variables, job.entrypoint, file_env_path)
+        after_code = execute_in_docker(
+            client,
+            after_invocation,
+            job.image,
+            job.variables,
+            job.entrypoint,
+            file_env_path,
+        )
         if after_code:
-            print(f"\x1b[33mWARNING: after_script failed: exit code {after_code}\x1b[0m", flush=True)
+            print(
+                f"\x1b[33mWARNING: after_script failed: exit code {after_code}\x1b[0m",
+                flush=True,
+            )
 
     if before_and_main_code:
-        print(f"\x1b[31mERROR: Job failed: exit code {before_and_main_code}\x1b[0m", flush=True)
+        print(
+            f"\x1b[31mERROR: Job failed: exit code {before_and_main_code}\x1b[0m",
+            flush=True,
+        )
     else:
         print("\x1b[32mJob succeeded\x1b[0m", flush=True)
 
 
-def create_volume(client: docker.DockerClient, base_path: Path, pipeline_base_path: Path, needs: list[str]) -> Volume:
+def create_volume(
+    client: docker.DockerClient,
+    base_path: Path,
+    pipeline_base_path: Path,
+    needs: list[str],
+) -> Volume:
     lower = ":".join([os.getcwd()] + [str(pipeline_base_path / n) for n in needs])
     upper = str(base_path / "run")
     work = str(base_path / "work")
 
-    volume = client.volumes.create(VOLUME_NAME, driver="local", driver_opts={
-        "device": "overlay",
-        "type": "overlay",
-        "o": f"lowerdir={lower},upperdir={upper},workdir={work}"
-    })
+    volume = client.volumes.create(
+        VOLUME_NAME,
+        driver="local",
+        driver_opts={
+            "device": "overlay",
+            "type": "overlay",
+            "o": f"lowerdir={lower},upperdir={upper},workdir={work}",
+        },
+    )
 
     return cast(Volume, volume)
 

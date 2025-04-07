@@ -44,14 +44,16 @@ def normalise_ci_job(ci: dict, ci_job: dict, top_level: bool = False) -> dict:
 
 
 def parse_ci_config(ci: dict, job_name: str) -> Job:
-    ci_job = ci[job_name] 
+    ci_job = ci[job_name]
     norm_job = normalise_ci_job(ci, ci_job, top_level=True)
 
     before_script = norm_job["before_script"] if "before_script" in norm_job else []
     script = norm_job["script"]
     image = norm_job["image"]
     after_script = norm_job["after_script"] if "after_script" in norm_job else []
-    entrypoint = norm_job["image"]["entrypoint"] if "entrypoint" in norm_job["image"] else None
+    entrypoint = (
+        norm_job["image"]["entrypoint"] if "entrypoint" in norm_job["image"] else None
+    )
     variables = norm_job["variables"] if "variables" in norm_job else {}
     needs = norm_job["needs"] if "needs" in norm_job else []
 
@@ -62,4 +64,6 @@ def parse_ci_config(ci: dict, job_name: str) -> Job:
     else:
         needs = norm_job["needs"]
 
-    return Job(Script(before_script, script, after_script), image, entrypoint, variables, needs)
+    return Job(
+        Script(before_script, script, after_script), image, entrypoint, variables, needs
+    )

@@ -67,11 +67,15 @@ def create_paths(base_path: Path, project_components: list[str], pipeline_id: in
     os.makedirs(project_path / "pipelines" / str(pipeline_id), exist_ok=True)
 
 
-def get_base_env(base_path: Path, instance: str, project_components: list[str]) -> dict[str, env.Env]:
+def get_base_env(
+    base_path: Path, instance: str, project_components: list[str]
+) -> dict[str, env.Env]:
     environ = env.load(base_path / "env.json")
 
     for i in range(len(project_components) + 1):
-        path = (base_path / "instance" / instance).joinpath(*project_components[:i]) / "env.json"
+        path = (base_path / "instance" / instance).joinpath(
+            *project_components[:i]
+        ) / "env.json"
         environ |= env.load(path)
 
     return environ
@@ -103,19 +107,29 @@ def main() -> None:
     create_paths(base_path, gitlab_params.project_components, gitlab_params.pipeline)
 
     instance_path = base_path / "instance" / gitlab_params.instance_name
-    gitlab_util.get_env_variables(gitlab_inst, gitlab_params.project_components, instance_path)
+    gitlab_util.get_env_variables(
+        gitlab_inst, gitlab_params.project_components, instance_path
+    )
 
     with open(".gitlab-ci.yml") as f:
         ci = yaml.safe_load(f)
 
     job = parse.parse_ci_config(ci, cmd_args.job)
 
-    pipeline_base_path = instance_path.joinpath(*gitlab_params.project_components) / "pipelines" / str(gitlab_params.pipeline)
+    pipeline_base_path = (
+        instance_path.joinpath(*gitlab_params.project_components)
+        / "pipelines"
+        / str(gitlab_params.pipeline)
+    )
 
     project_inst = gitlab_inst.projects.get("/".join(gitlab_params.project_components))
-    gitlab_util.get_required_artifacts(project_inst, gitlab_params.pipeline, job.needs, pipeline_base_path)
+    gitlab_util.get_required_artifacts(
+        project_inst, gitlab_params.pipeline, job.needs, pipeline_base_path
+    )
 
-    environ = get_base_env(base_path, gitlab_params.instance_name, gitlab_params.project_components)
+    environ = get_base_env(
+        base_path, gitlab_params.instance_name, gitlab_params.project_components
+    )
     env_vars = create_env_vars(environ)
     job.variables = env_vars | job.variables
 
