@@ -9,3 +9,9 @@ dependencies = [
     "python-gitlab>=5.6.0",
     "pyyaml>=6.0.2",
 ]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "ruff>=0.11.4",
+]
