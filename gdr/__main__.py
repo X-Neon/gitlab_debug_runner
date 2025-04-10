@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from pathlib import Path
 import os
 import shutil
-import json
 import tempfile
 import yaml
 from gitlab import Gitlab
@@ -42,27 +41,28 @@ def decompose_pipeline_url(pipeline_url: str) -> GitlabParams:
     return GitlabParams(instance_url, url.netloc, project_components, pipeline)
 
 
-def create_paths(base_path: Path, project_components: list[str], pipeline_id: int):
+def create_paths(
+    base_path: Path, instance_name: str, project_components: list[str], pipeline_id: int
+):
     os.makedirs(base_path / "work", exist_ok=True)
 
-    run = base_path / "run"
-    if os.path.exists(run):
-        shutil.rmtree(run)
+    run_path = base_path / "run"
+    if os.path.exists(run_path):
+        shutil.rmtree(run_path)
 
-    os.makedirs(run)
+    os.makedirs(run_path)
 
-    env = base_path / "env"
-    if os.path.exists(env):
-        shutil.rmtree(env)
+    env_path = base_path / "env"
+    if os.path.exists(env_path):
+        shutil.rmtree(env_path)
 
-    os.makedirs(env)
+    os.makedirs(env_path)
 
     env_file = base_path / "env.json"
     if not os.path.exists(env_file):
-        with open(env_file, "w") as f:
-            json.dump({"env": []}, f)
+        env.dump(env_file, {})
 
-    instance = base_path / "instance"
+    instance = base_path / "instance" / instance_name
     project_path = instance.joinpath(*project_components)
     os.makedirs(project_path / "pipelines" / str(pipeline_id), exist_ok=True)
 
@@ -81,11 +81,11 @@ def get_base_env(
     return environ
 
 
-def create_env_vars(environ: dict[str, env.Env]) -> dict[str, str]:
+def create_env_vars(environ: dict[str, env.Env], base_path: Path) -> dict[str, str]:
     env_vars: dict[str, str] = {}
     for k, v in environ.items():
         if v.env_type == env.EnvType.FILE:
-            path = f"/env/{k}"
+            path = base_path / "env" / k
             with open(path, "w") as f:
                 f.write(v.value)
 
@@ -104,7 +104,12 @@ def main() -> None:
     gitlab_inst = Gitlab(gitlab_params.instance_url, cmd_args.token)
 
     base_path = Path(tempfile.gettempdir()) / "gdr"
-    create_paths(base_path, gitlab_params.project_components, gitlab_params.pipeline)
+    create_paths(
+        base_path,
+        gitlab_params.instance_name,
+        gitlab_params.project_components,
+        gitlab_params.pipeline,
+    )
 
     instance_path = base_path / "instance" / gitlab_params.instance_name
     gitlab_util.get_env_variables(
@@ -130,7 +135,7 @@ def main() -> None:
     environ = get_base_env(
         base_path, gitlab_params.instance_name, gitlab_params.project_components
     )
-    env_vars = create_env_vars(environ)
+    env_vars = create_env_vars(environ, base_path)
     job.variables = env_vars | job.variables
 
     run.setup_and_run(job, base_path, pipeline_base_path)

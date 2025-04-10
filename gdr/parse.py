@@ -57,6 +57,13 @@ def parse_ci_config(ci: dict, job_name: str) -> Job:
     variables = norm_job["variables"] if "variables" in norm_job else {}
     needs = norm_job["needs"] if "needs" in norm_job else []
 
+    if isinstance(norm_job["image"], dict):
+        image = norm_job["image"]["name"]
+        entrypoint = norm_job["image"].get("entrypoint")
+    else:
+        image = norm_job["image"]
+        entrypoint = None
+
     if "needs" not in norm_job:
         needs = []
     elif isinstance(norm_job["needs"], str):

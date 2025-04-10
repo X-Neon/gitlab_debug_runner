@@ -1,10 +1,10 @@
 import json
 from dataclasses import dataclass
-from enum import StrEnum
+from enum import Enum
 from pathlib import Path
 
 
-class EnvType(StrEnum):
+class EnvType(Enum):
     VAR = "env_var"
     FILE = "file"
 
@@ -24,7 +24,7 @@ def load(path: Path) -> dict[str, Env]:
 
 def dump(path: Path, env_obj: dict[str, Env]) -> None:
     env_dict = {
-        k: {"value": v.value, "type": str(v.env_type)} for k, v in env_obj.items()
+        k: {"value": v.value, "type": v.env_type.value} for k, v in env_obj.items()
     }
 
     with open(path, "w") as f:

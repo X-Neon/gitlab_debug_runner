@@ -27,7 +27,9 @@ def get_env_variables(
     gitlab_inst: Gitlab, project_components: list[str], inst_base_path: Path
 ) -> None:
     if not os.path.exists(inst_base_path / "env.json"):
-        write_env_file(inst_base_path / "env.json", gitlab_inst.variables.list())
+        write_env_file(
+            inst_base_path / "env.json", gitlab_inst.variables.list(get_all=True)
+        )
 
     for i in range(len(project_components) - 1):
         group = "/".join(project_components[:i])
@@ -35,14 +37,17 @@ def get_env_variables(
 
         if not os.path.exists(group_path / "env.json"):
             write_env_file(
-                group_path / "env.json", gitlab_inst.groups.get(group).variables.list()
+                group_path / "env.json",
+                gitlab_inst.groups.get(group).variables.list(get_all=True),
             )
 
     project_path = inst_base_path.joinpath(*project_components)
     if not os.path.exists(project_path / "env.json"):
         write_env_file(
             project_path / "env.json",
-            gitlab_inst.projects.get("/".join(project_components)).variables.list(),
+            gitlab_inst.projects.get("/".join(project_components)).variables.list(
+                get_all=True
+            ),
         )
 
 
@@ -51,7 +56,7 @@ def download_artifacts(
 ) -> None:
     pipeline = project_inst.pipelines.get(pipeline_id)
 
-    for j in pipeline.jobs.list():
+    for j in pipeline.jobs.list(get_all=True):
         if j.attributes["name"] not in jobs:
             continue
 
