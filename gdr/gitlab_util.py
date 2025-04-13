@@ -31,7 +31,7 @@ def get_env_variables(
             inst_base_path / "env.json", gitlab_inst.variables.list(get_all=True)
         )
 
-    for i in range(len(project_components) - 1):
+    for i in range(1, len(project_components)):
         group = "/".join(project_components[:i])
         group_path = inst_base_path.joinpath(*project_components[:i])
 
