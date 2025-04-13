@@ -96,6 +96,21 @@ def create_env_vars(environ: dict[str, env.Env], base_path: Path) -> dict[str, s
     return env_vars
 
 
+def expand_variables(env_vars: dict[str, str]) -> None:
+    for k in env_vars.keys():
+        while "$" in env_vars[k]:
+            v = env_vars[k]
+            begin = v.find("$") + 1
+            end = begin
+
+            while end < len(v) and (v[end].isalnum() or v[end] == "_"):
+                end += 1
+
+            to_expand = v[begin:end]
+            replace = env_vars.get(to_expand, "")
+            env_vars[k] = v[: begin - 1] + replace + v[end:]
+
+
 def main() -> None:
     cmd_args = args.parse_cmd_args()
 
@@ -137,6 +152,7 @@ def main() -> None:
     )
     env_vars = create_env_vars(environ, base_path)
     job.variables = env_vars | job.variables
+    expand_variables(job.variables)
 
     run.setup_and_run(job, base_path, pipeline_base_path)
 
