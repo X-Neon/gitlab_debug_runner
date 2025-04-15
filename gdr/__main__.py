@@ -100,15 +100,28 @@ def expand_variables(env_vars: dict[str, str]) -> None:
     for k in env_vars.keys():
         while "$" in env_vars[k]:
             v = env_vars[k]
-            begin = v.find("$") + 1
-            end = begin
+            begin = v.find("$")
 
-            while end < len(v) and (v[end].isalnum() or v[end] == "_"):
+            if v[begin + 1] == "{":
+                # ${VAR} form
+                end = begin + 2
+
+                while v[end] != "}":
+                    end += 1
+
+                to_expand = v[begin + 2 : end]
                 end += 1
+            else:
+                # $VAR form
+                end = begin + 1
 
-            to_expand = v[begin:end]
+                while end < len(v) and (v[end].isalnum() or v[end] == "_"):
+                    end += 1
+
+                to_expand = v[begin + 1 : end]
+
             replace = env_vars.get(to_expand, "")
-            env_vars[k] = v[: begin - 1] + replace + v[end:]
+            env_vars[k] = v[:begin] + replace + v[end:]
 
 
 def main() -> None:
