@@ -96,32 +96,37 @@ def create_env_vars(environ: dict[str, env.Env], base_path: Path) -> dict[str, s
     return env_vars
 
 
-def expand_variables(env_vars: dict[str, str]) -> None:
-    for k in env_vars.keys():
-        while "$" in env_vars[k]:
-            v = env_vars[k]
-            begin = v.find("$")
+def expand_variable(v: str, env_vars: dict[str, str]) -> str:
+    while "$" in v:
+        begin = v.find("$")
 
-            if v[begin + 1] == "{":
-                # ${VAR} form
-                end = begin + 2
+        if v[begin + 1] == "{":
+            # ${VAR} form
+            end = begin + 2
 
-                while v[end] != "}":
-                    end += 1
-
-                to_expand = v[begin + 2 : end]
+            while v[end] != "}":
                 end += 1
-            else:
-                # $VAR form
-                end = begin + 1
 
-                while end < len(v) and (v[end].isalnum() or v[end] == "_"):
-                    end += 1
+            to_expand = v[begin + 2 : end]
+            end += 1
+        else:
+            # $VAR form
+            end = begin + 1
 
-                to_expand = v[begin + 1 : end]
+            while end < len(v) and (v[end].isalnum() or v[end] == "_"):
+                end += 1
 
-            replace = env_vars.get(to_expand, "")
-            env_vars[k] = v[:begin] + replace + v[end:]
+            to_expand = v[begin + 1 : end]
+
+        replace = env_vars.get(to_expand, "")
+        v = v[:begin] + replace + v[end:]
+
+    return v
+
+
+def expand_all_variables(env_vars: dict[str, str]) -> None:
+    for k in env_vars.keys():
+        env_vars[k] = expand_variable(env_vars[k], env_vars)
 
 
 def main() -> None:
@@ -165,7 +170,9 @@ def main() -> None:
     )
     env_vars = create_env_vars(environ, base_path)
     job.variables = env_vars | job.variables
-    expand_variables(job.variables)
+    expand_all_variables(job.variables)
+
+    job.image = expand_variable(job.image, job.variables)
 
     run.setup_and_run(job, base_path, pipeline_base_path)
 
